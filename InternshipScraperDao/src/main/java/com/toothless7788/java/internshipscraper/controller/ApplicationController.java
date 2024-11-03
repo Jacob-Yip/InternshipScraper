@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.toothless7788.java.internshipscraper.entity.Application;
+import com.toothless7788.java.internshipscraper.exception.ApplicationInitialisationException;
 import com.toothless7788.java.internshipscraper.exception.ApplicationNotFoundException;
 import com.toothless7788.java.internshipscraper.service.ApplicationService;
 
@@ -44,8 +45,12 @@ public class ApplicationController {
 	}
 	
 	@GetMapping("one/{id}")
-	public EntityModel<Application> one(@PathVariable Long id) {
+	public EntityModel<Application> one(@PathVariable Long id) throws ApplicationNotFoundException {
 		Application application = applicationService.findById(id);
+		
+		if(application == null) {
+			throw new ApplicationNotFoundException(id.longValue());
+		}
 		
 		return EntityModel.of(
 				application, 
@@ -55,16 +60,20 @@ public class ApplicationController {
 	}
 	
 	@PostMapping("/")
-	public EntityModel<Application> newApplication(@RequestBody Application application) {
-		Application targetApplication = applicationService.addApplication(application);    // Will never be null
-		
-		Application addedApplication = applicationService.findById(targetApplication.getId());
-		
-		return EntityModel.of(
-				addedApplication, 
-				linkTo(methodOn(ApplicationController.class).one(Long.valueOf(addedApplication.getId()))).withSelfRel(), 
-				linkTo(methodOn(ApplicationController.class).all()).withRel("applications")
-		);
+	public EntityModel<Application> newApplication(@RequestBody Application application) throws ApplicationInitialisationException {
+		try {
+			Application targetApplication = applicationService.addApplication(application);    // Will never be null
+			
+			Application addedApplication = applicationService.findById(targetApplication.getId());
+			
+			return EntityModel.of(
+					addedApplication, 
+					linkTo(methodOn(ApplicationController.class).one(Long.valueOf(addedApplication.getId()))).withSelfRel(), 
+					linkTo(methodOn(ApplicationController.class).all()).withRel("applications")
+					);
+		} catch(Exception e) {
+			throw new ApplicationInitialisationException(application, e);
+		}
 	}
 	
 	/**

@@ -20,7 +20,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.toothless7788.java.internshipscraper.entity.Company;
+import com.toothless7788.java.internshipscraper.exception.CompanyInitialisationException;
 import com.toothless7788.java.internshipscraper.exception.CompanyNotFoundException;
+import com.toothless7788.java.internshipscraper.exception.EmptyCompanyException;
 import com.toothless7788.java.internshipscraper.service.CompanyService;
 
 @RestController
@@ -45,8 +47,12 @@ public class CompanyController {
 	}
 	
 	@GetMapping("one/{id}")
-	public EntityModel<Company> one(@PathVariable Long id) {
+	public EntityModel<Company> one(@PathVariable Long id) throws CompanyNotFoundException {
 		Company company = companyService.findById(id);
+		
+		if(company == null) {
+			throw new CompanyNotFoundException(id.longValue());
+		}
 		
 		return EntityModel.of(
 				company, 
@@ -56,16 +62,20 @@ public class CompanyController {
 	}
 	
 	@PostMapping("/")
-	public EntityModel<Company> newCompany(@RequestBody Company company) {
-		Company targetCompany = companyService.addCompany(company);    // Will never be null
-		
-		Company addedCompany = companyService.findById(targetCompany.getId());
-		
-		return EntityModel.of(
-				addedCompany, 
-				linkTo(methodOn(CompanyController.class).one(Long.valueOf(addedCompany.getId()))).withSelfRel(), 
-				linkTo(methodOn(CompanyController.class).all()).withRel("companies")
-		);
+	public EntityModel<Company> newCompany(@RequestBody Company company) throws CompanyInitialisationException {
+		try {
+			Company targetCompany = companyService.addCompany(company);    // Will never be null
+			
+			Company addedCompany = companyService.findById(targetCompany.getId());
+			
+			return EntityModel.of(
+					addedCompany, 
+					linkTo(methodOn(CompanyController.class).one(Long.valueOf(addedCompany.getId()))).withSelfRel(), 
+					linkTo(methodOn(CompanyController.class).all()).withRel("companies")
+					);
+		} catch(Exception e) {
+			throw new CompanyInitialisationException(company, e);
+		}
 	}
 	
 	/**

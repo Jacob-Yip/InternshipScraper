@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.toothless7788.java.internshipscraper.entity.Keyword;
 import com.toothless7788.java.internshipscraper.entity.KeywordID;
 import com.toothless7788.java.internshipscraper.exception.EmptyKeywordIDException;
+import com.toothless7788.java.internshipscraper.exception.KeywordInitialisationException;
 import com.toothless7788.java.internshipscraper.exception.KeywordNotFoundException;
 import com.toothless7788.java.internshipscraper.service.KeywordService;
 
@@ -46,13 +47,17 @@ public class KeywordController {
 	}
 	
 	@GetMapping("one")
-	public EntityModel<Keyword> one(@RequestParam Long id, @RequestParam String keyword) {
+	public EntityModel<Keyword> one(@RequestParam Long id, @RequestParam String keyword) throws KeywordNotFoundException {
 		if(id == null || keyword == null) {
 			throw new EmptyKeywordIDException();
 		}
 		
 		KeywordID targetIdentifier = new KeywordID(keyword, id.longValue());
 		Keyword targetKeyword = keywordService.findByID(targetIdentifier);
+		
+		if(targetKeyword == null) {
+			throw new KeywordNotFoundException(targetIdentifier);
+		}
 		
 		return EntityModel.of(
 				targetKeyword, 
@@ -62,16 +67,20 @@ public class KeywordController {
 	}
 	
 	@PostMapping("/")
-	public EntityModel<Keyword> newKeyword(@RequestBody Keyword keyword) {
-		Keyword targetKeyword = keywordService.addKeyword(keyword.getID());    // Will never be null
-		
-		Keyword addedKeyword = keywordService.findByID(targetKeyword.getID());
-		
-		return EntityModel.of(
-				addedKeyword, 
-				linkTo(methodOn(KeywordController.class).one(Long.valueOf(addedKeyword.getID().getApplicationID()), addedKeyword.getID().getKeyword())).withSelfRel(), 
-				linkTo(methodOn(KeywordController.class).all()).withRel("keywords")
-		);
+	public EntityModel<Keyword> newKeyword(@RequestBody Keyword keyword) throws KeywordInitialisationException {
+		try {
+			Keyword targetKeyword = keywordService.addKeyword(keyword.getID());    // Will never be null
+			
+			Keyword addedKeyword = keywordService.findByID(targetKeyword.getID());
+			
+			return EntityModel.of(
+					addedKeyword, 
+					linkTo(methodOn(KeywordController.class).one(Long.valueOf(addedKeyword.getID().getApplicationID()), addedKeyword.getID().getKeyword())).withSelfRel(), 
+					linkTo(methodOn(KeywordController.class).all()).withRel("keywords")
+					);
+		} catch(Exception e) {
+			throw new KeywordInitialisationException(keyword, e);
+		}
 	}
 	
 	/**

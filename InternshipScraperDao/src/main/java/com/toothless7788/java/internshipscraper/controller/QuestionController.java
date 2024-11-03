@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.toothless7788.java.internshipscraper.entity.Question;
+import com.toothless7788.java.internshipscraper.exception.QuestionInitialisationException;
 import com.toothless7788.java.internshipscraper.exception.QuestionNotFoundException;
 import com.toothless7788.java.internshipscraper.service.QuestionService;
 
@@ -44,8 +45,12 @@ public class QuestionController {
 	}
 	
 	@GetMapping("one/{id}")
-	public EntityModel<Question> one(@PathVariable Long id) {
+	public EntityModel<Question> one(@PathVariable Long id) throws QuestionNotFoundException {
 		Question question = questionService.findById(id);
+		
+		if(question == null) {
+			throw new QuestionNotFoundException(id.longValue());
+		}
 		
 		return EntityModel.of(
 				question, 
@@ -55,16 +60,20 @@ public class QuestionController {
 	}
 	
 	@PostMapping("/")
-	public EntityModel<Question> newQuestion(@RequestBody Question question) {
-		Question targetQuestion = questionService.addQuestion(question);    // Will never be null
-		
-		Question addedQuestion = questionService.findById(targetQuestion.getId());
-		
-		return EntityModel.of(
-				addedQuestion, 
-				linkTo(methodOn(QuestionController.class).one(Long.valueOf(addedQuestion.getId()))).withSelfRel(), 
-				linkTo(methodOn(QuestionController.class).all()).withRel("questions")
-		);
+	public EntityModel<Question> newQuestion(@RequestBody Question question) throws QuestionInitialisationException {
+		try {
+			Question targetQuestion = questionService.addQuestion(question);    // Will never be null
+			
+			Question addedQuestion = questionService.findById(targetQuestion.getId());
+			
+			return EntityModel.of(
+					addedQuestion, 
+					linkTo(methodOn(QuestionController.class).one(Long.valueOf(addedQuestion.getId()))).withSelfRel(), 
+					linkTo(methodOn(QuestionController.class).all()).withRel("questions")
+					);
+		} catch(Exception e) {
+			throw new QuestionInitialisationException(question, e);
+		}
 	}
 	
 	/**
